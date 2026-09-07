@@ -1,0 +1,2 @@
+timestamp,sku,escena_id,modelo_ia,prompt,seed,intento,score_qa,problema,costo_usd,ruta_output
+2026-09-06T16:20:38,HOMIE-BLK-001,n/a,compositing_local,n/a,n/a,1,n/a,,0.0,E:\publicidad\output\HOMIE-BLK-001_producto_4x5_v1.jpg

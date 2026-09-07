@@ -1,0 +1,5 @@
+pillow
+rembg
+onnxruntime
+fal-client
+python-dotenv

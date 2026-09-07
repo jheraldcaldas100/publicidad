@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+
+# Salidas generadas (imagenes de prueba) - no versionar, si el registro de costos
+output/*
+!output/registro.csv
