@@ -61,10 +61,12 @@ def hacer_backup() -> Path:
     import sqlite3
 
     origen_path = db.DB_PATH.resolve()
-    destino_path = origen_path.with_name(f"{origen_path.name}.bak-{datetime.now():%Y%m%d-%H%M%S}")
+    carpeta_backups = origen_path.parent / "backups"
+    destino_path = carpeta_backups / f"{origen_path.name}.bak-{datetime.now():%Y%m%d-%H%M%S}"
 
     if not origen_path.is_file():
         abortar(f"no existe la base de datos en {origen_path} - nada que respaldar")
+    carpeta_backups.mkdir(parents=True, exist_ok=True)
     if destino_path.exists():
         abortar("ya existe un backup con ese nombre - resolver antes de continuar")
 
