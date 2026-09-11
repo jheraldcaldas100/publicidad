@@ -1,6 +1,10 @@
+from unittest.mock import patch
+
 import pytest
 
+import db
 from fase6_qa_reintento import (
+    COSTO_QA_USD,
     ErrorEsquemaQA,
     _es_verdadero,
     _parsear_json_estricto,
@@ -8,6 +12,7 @@ from fase6_qa_reintento import (
     _validar_esquema,
     calcular_score,
     construir_prompt_reintento,
+    evaluar_calidad,
 )
 
 RESPUESTA_OK = {
@@ -141,3 +146,43 @@ def test_construir_prompt_reintento_con_qa_error_no_explota():
 
 def test_texto_correcciones_qa_error_vacio():
     assert _texto_correcciones({"qa_error": True, "detalle": "x"}) == ""
+
+
+def _resultado_fal(objeto_json: str) -> dict:
+    return {"output": objeto_json}
+
+
+def test_evaluar_calidad_registra_el_costo_real_en_exito(db_temporal, imagen_valida):
+    """Regresion real: evaluar_calidad() nunca pasaba costo_usd a
+    registrar_evaluacion_qa - evaluaciones_qa.costo_usd quedaba siempre en
+    0.0 pese a que cada llamada exitosa a fal.ai si tiene un costo real."""
+    gid = db.registrar_generacion(sku="SKU1", escena_id="04", modelo_ia="nano_banana",
+                                   prompt="p", seed="n/a", intento=1, ruta_output="x.jpg")
+    import json
+    respuesta = _resultado_fal(json.dumps({**RESPUESTA_OK}))
+
+    with patch("fase6_qa_reintento.fal_client.upload_file", return_value="url://x"), \
+         patch("fase6_qa_reintento.fal_client.subscribe", return_value=respuesta):
+        evaluar_calidad(
+            imagen_valida("producto.jpg"), imagen_valida("escena.jpg"), imagen_valida("generada.jpg"),
+            generacion_id=gid,
+        )
+
+    fila = db.ultima_evaluacion_vigente(gid)
+    assert fila["costo_usd"] == COSTO_QA_USD
+
+
+def test_evaluar_calidad_registra_el_costo_real_en_qa_error(db_temporal, imagen_valida):
+    gid = db.registrar_generacion(sku="SKU1", escena_id="04", modelo_ia="nano_banana",
+                                   prompt="p", seed="n/a", intento=1, ruta_output="x.jpg")
+
+    with patch("fase6_qa_reintento.fal_client.upload_file", return_value="url://x"), \
+         patch("fase6_qa_reintento.fal_client.subscribe", return_value=_resultado_fal("no es json")):
+        evaluar_calidad(
+            imagen_valida("producto.jpg"), imagen_valida("escena.jpg"), imagen_valida("generada.jpg"),
+            generacion_id=gid,
+        )
+
+    fila = db.ultima_evaluacion_vigente(gid)
+    assert fila["qa_error"] == 1
+    assert fila["costo_usd"] == COSTO_QA_USD

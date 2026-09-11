@@ -20,6 +20,15 @@ load_dotenv(ROOT / ".env")
 
 MODELO_VISION = "google/gemini-2.5-flash"
 
+# Estimado, no facturacion exacta de fal.ai (no hay acceso a su API de
+# billing desde aqui) - mismo orden de magnitud ya documentado en el
+# proyecto (docs/PLAN-CORRECCION-MINIMA.md, fase6_validacion_clasificador.py)
+# para openrouter/router/vision con este modelo. Se registra igual para una
+# evaluacion exitosa que para un qa_error: en ambos casos la llamada al
+# proveedor ya se hizo (la distincion es sobre la respuesta, no sobre si el
+# proveedor cobro o no - eso no es observable desde este cliente).
+COSTO_QA_USD = 0.02
+
 # Los items 1-3 se comparan contra la imagen 1 (producto real): no asumen
 # ningun color, texto de marca, o construccion fija - deben valer para
 # cualquier SKU, no solo para la gorra blanca/negra usada en las pruebas
@@ -220,6 +229,7 @@ def evaluar_calidad(ruta_producto: Path, ruta_escena: Path, ruta_generada: Path,
                 generacion_id, modelo_qa=modelo_qa, version_prompt_qa=version_prompt_qa,
                 score=score, aprobado=aprobado, qa_error=False,
                 detalle=items.get("problema", "")[:2000], resultado_json=json.dumps(objeto),
+                costo_usd=COSTO_QA_USD,
             )
         return items
 
@@ -235,7 +245,7 @@ def evaluar_calidad(ruta_producto: Path, ruta_escena: Path, ruta_generada: Path,
             db.registrar_evaluacion_qa(
                 generacion_id, modelo_qa=modelo_qa, version_prompt_qa=version_prompt_qa,
                 score=None, aprobado=False, qa_error=True, detalle=detalle,
-                resultado_json="",
+                resultado_json="", costo_usd=COSTO_QA_USD,
             )
         return {"qa_error": True, "detalle": detalle}
 
