@@ -17,8 +17,10 @@ Set-Location (Join-Path $Raiz "src")
 $marca = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 Add-Content -Path $ArchivoLog -Value "`n=== [$marca] backup diario ==="
 
+# -u: stdout/stderr sin buffer (ver iniciar_worker.ps1 para el detalle).
+#
 # redireccion via cmd.exe, no la de PowerShell (*>>) - PowerShell reinterpreta
 # el stream de salida como texto y lo puede recodificar mal (UTF-16 con un
 # espacio entre cada caracter); cmd.exe hace redireccion de bytes cruda, sin
 # tocar la codificacion que Python ya escribe.
-& cmd.exe /c "`"$Python`" `"$Script`" >> `"$ArchivoLog`" 2>&1"
+& cmd.exe /c "`"$Python`" -u `"$Script`" >> `"$ArchivoLog`" 2>&1"

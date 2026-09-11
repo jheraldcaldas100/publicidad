@@ -18,6 +18,11 @@ Set-Location (Join-Path $Raiz "src")
 $marca = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 Add-Content -Path $ArchivoLog -Value "`n=== [$marca] iniciando worker (Tarea Programada) ==="
 
+# -u: stdout/stderr sin buffer - sin esto, Python bufferea toda la salida
+# cuando no escribe a una consola real (como aqui, redirigida a archivo), asi
+# que el log podia quedar "invisible" por horas hasta que el buffer se
+# llenara, pese a que el worker si estaba corriendo y logueando internamente.
+#
 # redireccion via cmd.exe, no la de PowerShell (*>>) - ver backup_diario.ps1
 # para el detalle de por que (evita que PowerShell recodifique mal el log).
-& cmd.exe /c "`"$Python`" `"$Script`" >> `"$ArchivoLog`" 2>&1"
+& cmd.exe /c "`"$Python`" -u `"$Script`" >> `"$ArchivoLog`" 2>&1"
