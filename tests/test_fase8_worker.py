@@ -1,8 +1,17 @@
+import io
 from pathlib import Path
 from unittest.mock import patch
 
+from PIL import Image
+
 import db
 import fase8_worker_ingesta as w
+
+
+def _bytes_imagen_valida() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (10, 10)).save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def test_destino_deseado():
@@ -163,3 +172,84 @@ def test_reconciliar_qa_incompleta_excluye_rechazado_y_aprobado(db_temporal, ima
     with patch("fase8_worker_ingesta.evaluar_calidad") as mock_qa:
         w.reconciliar_qa_incompleta()
         mock_qa.assert_not_called()
+
+
+def test_pista_b_reintenta_automaticamente_dentro_del_mismo_procesamiento(db_temporal, imagen_valida, monkeypatch):
+    """Regresion real (encontrada procesando los primeros 10 trabajos
+    reales del negocio): un trabajo nuevo solo pasa por procesar_trabajo()
+    UNA vez (pasa de pendiente a listo_para_revision/error en esa misma
+    llamada, nunca vuelve a pendiente solo) - sin un bucle dentro de
+    _procesar_pista_b, una escena que fallaba en su primer intento se
+    quedaba asi para siempre, sin la segunda oportunidad que MAX_INTENTOS=2
+    promete. El fix llama a _procesar_escena_pista_b hasta MAX_INTENTOS
+    veces por escena dentro de la misma pasada - la funcion ya es
+    idempotente (no hace nada si la escena ya esta aprobada), asi que esto
+    implementa el reintento real sin duplicar logica."""
+    monkeypatch.setattr(w, "ESCENAS_PRODUCCION", ["04"])
+    tid = db.crear_trabajo("d1", "f.jpg", "SKU1", str(imagen_valida("f.jpg")))
+
+    llamadas_generacion = {"n": 0}
+
+    def fake_run(modelo, arguments):
+        llamadas_generacion["n"] += 1
+        return {"images": [{"url": "http://fake/img.jpg"}]}
+
+    resultados_qa = [
+        {"score": 50, "aprobado": False, "qa_error": False, "problema": "no aprobado"},
+        {"score": 100, "aprobado": True, "qa_error": False, "problema": ""},
+    ]
+
+    def fake_evaluar_calidad(ruta_producto, ruta_escena, ruta_generada, generacion_id=None, **kwargs):
+        # replica el efecto real de evaluar_calidad(): persiste en
+        # evaluaciones_qa, no solo devuelve un valor - si no, la siguiente
+        # vuelta del bucle no encuentra ninguna evaluacion registrada y el
+        # guard toma la rama equivocada ("aun no evaluado", no "no aprobado").
+        resultado = resultados_qa.pop(0)
+        db.registrar_evaluacion_qa(generacion_id, modelo_qa="m", version_prompt_qa=db.VERSION_QA,
+                                    score=resultado["score"], aprobado=resultado["aprobado"], qa_error=False)
+        return resultado
+
+    class FakeResp:
+        content = _bytes_imagen_valida()
+
+    with patch("fase8_worker_ingesta.fal_client.upload_file", return_value="url://x"), \
+         patch("fase8_worker_ingesta.fal_client.run", side_effect=fake_run), \
+         patch("fase8_worker_ingesta.requests.get", return_value=FakeResp()), \
+         patch("fase8_worker_ingesta._ruta_escena", return_value=imagen_valida("escena04.jpg")), \
+         patch("fase8_worker_ingesta.evaluar_calidad", side_effect=fake_evaluar_calidad):
+        w._procesar_pista_b(tid, "SKU1", imagen_valida("foto.jpg"))
+
+    assert llamadas_generacion["n"] == 2  # intento 1 (no aprobado) + intento 2 (aprobado), en una sola pasada
+    filas_b = [f for f in db.generaciones_de_trabajo(tid) if f["modelo_ia"] == "nano_banana"]
+    assert len(filas_b) == 2
+    assert filas_b[-1]["intento"] == 2
+
+
+def test_pista_b_no_excede_max_intentos_aunque_nunca_apruebe(db_temporal, imagen_valida, monkeypatch):
+    monkeypatch.setattr(w, "ESCENAS_PRODUCCION", ["04"])
+    tid = db.crear_trabajo("d1", "f.jpg", "SKU1", str(imagen_valida("f.jpg")))
+
+    llamadas_generacion = {"n": 0}
+
+    def fake_run(modelo, arguments):
+        llamadas_generacion["n"] += 1
+        return {"images": [{"url": "http://fake/img.jpg"}]}
+
+    class FakeResp:
+        content = _bytes_imagen_valida()
+
+    def fake_evaluar_calidad_nunca_aprueba(ruta_producto, ruta_escena, ruta_generada, generacion_id=None, **kwargs):
+        db.registrar_evaluacion_qa(generacion_id, modelo_qa="m", version_prompt_qa=db.VERSION_QA,
+                                    score=50, aprobado=False, qa_error=False)
+        return {"score": 50, "aprobado": False, "qa_error": False, "problema": "nunca aprueba"}
+
+    with patch("fase8_worker_ingesta.fal_client.upload_file", return_value="url://x"), \
+         patch("fase8_worker_ingesta.fal_client.run", side_effect=fake_run), \
+         patch("fase8_worker_ingesta.requests.get", return_value=FakeResp()), \
+         patch("fase8_worker_ingesta._ruta_escena", return_value=imagen_valida("escena04.jpg")), \
+         patch("fase8_worker_ingesta.evaluar_calidad", side_effect=fake_evaluar_calidad_nunca_aprueba):
+        w._procesar_pista_b(tid, "SKU1", imagen_valida("foto.jpg"))
+
+    assert llamadas_generacion["n"] == w.MAX_INTENTOS
+    filas_b = [f for f in db.generaciones_de_trabajo(tid) if f["modelo_ia"] == "nano_banana"]
+    assert len(filas_b) == w.MAX_INTENTOS

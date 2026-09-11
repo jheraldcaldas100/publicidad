@@ -202,7 +202,18 @@ def _procesar_pista_b(trabajo_id: int, sku: str, foto_gorra: Path) -> None:
         return urls_cache[escena_num]
 
     for escena_num in ESCENAS_PRODUCCION:
-        _procesar_escena_pista_b(trabajo_id, sku, foto_gorra, escena_num, dir_salida, url_gorra, url_escena)
+        # Corrige bug real: procesar_trabajo() solo se llama UNA vez por
+        # trabajo nuevo (pasa de pendiente a listo_para_revision/error en
+        # la misma llamada, nunca vuelve a pendiente solo) - sin este
+        # bucle, cada escena solo recibia un intento real durante el
+        # procesamiento normal, y MAX_INTENTOS=2 nunca se ejercia salvo
+        # que el trabajo se reiniciara por un crash o un "Reintentar"
+        # manual. _procesar_escena_pista_b() ya es idempotente (no hace
+        # nada si la escena ya esta aprobada o agotada), asi que llamarla
+        # hasta MAX_INTENTOS veces seguidas aqui mismo implementa el
+        # reintento real sin duplicar la logica de reanudacion.
+        for _ in range(MAX_INTENTOS):
+            _procesar_escena_pista_b(trabajo_id, sku, foto_gorra, escena_num, dir_salida, url_gorra, url_escena)
 
 
 def _procesar_escena_pista_b(trabajo_id, sku, foto_gorra, escena_num, dir_salida, url_gorra, url_escena) -> None:
