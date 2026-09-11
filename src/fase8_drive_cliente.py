@@ -167,6 +167,27 @@ def derivar_sku(nombre_archivo_original: str) -> str:
     return stem
 
 
+def derivar_sku_o_generar(nombre_archivo_original: str, drive_file_id: str) -> tuple[str, bool]:
+    """Como derivar_sku(), pero nunca rechaza un archivo solo porque su
+    nombre no produce un SKU valido - caso real y comun: fotos reenviadas
+    por WhatsApp con nombres tipo 'Copia de WhatsApp Image 2026-09-03 at
+    12.35.08 PM (3).jpeg', sin ningun codigo de producto real en el
+    nombre. En ese caso genera un identificador interno a partir del
+    drive_file_id (unico por diseno de Drive, ya validado como seguro para
+    usarse como componente de ruta via RE_DRIVE_FILE_ID_VALIDO) en vez de
+    mandar el archivo a rechazados.
+
+    Devuelve (sku, fue_generado). fue_generado=True significa que el "sku"
+    no viene de un codigo de producto real, sino que se invento aqui - no
+    va a ser legible para un humano en el panel a menos que se renombre
+    mas adelante (columna trabajos.sku, editable a mano con un UPDATE si
+    hace falta) cuando exista un codigo real."""
+    try:
+        return derivar_sku(nombre_archivo_original), False
+    except ArchivoRechazado:
+        return f"FOTO-{drive_file_id[:12]}", True
+
+
 def _validar_file_id(file_id: str) -> None:
     if not RE_DRIVE_FILE_ID_VALIDO.match(file_id):
         raise ValueError(f"drive_file_id con formato inesperado, rechazado por seguridad: {file_id!r}")

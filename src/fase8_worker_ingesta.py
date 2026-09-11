@@ -26,7 +26,7 @@ import db
 import fase8_drive_cliente as drive
 from fase5_pista_a_produccion import FORMATOS, generar_imagen_producto
 from fase6_qa_reintento import construir_prompt_reintento, evaluar_calidad
-from fase8_drive_cliente import ArchivoRechazado, derivar_sku, descargar_archivo, listar_archivos_nuevos
+from fase8_drive_cliente import ArchivoRechazado, derivar_sku_o_generar, descargar_archivo, listar_archivos_nuevos
 from prompts import ESCENAS_PRODUCCION, PROMPT_V3
 from seguridad import sanitizar
 
@@ -103,7 +103,11 @@ def encolar_archivos_nuevos() -> int:
             if tamano > drive.LIMITE_BYTES_ENTRADA:
                 raise ArchivoRechazado(f"tamano reportado ({tamano} bytes) excede el limite de entrada")
 
-            sku = derivar_sku(archivo["name"])
+            # nunca rechaza solo por el nombre - si no produce un SKU real
+            # (caso comun: fotos reenviadas por WhatsApp sin codigo de
+            # producto en el nombre), genera un identificador interno a
+            # partir del drive_file_id en vez de descartar la foto.
+            sku, sku_generado = derivar_sku_o_generar(archivo["name"], file_id)
             destino = descargar_archivo(file_id, archivo["name"], SKUS_PENDIENTES_DIR)
 
             if not db.archivo_es_imagen_valida(destino):
@@ -131,7 +135,8 @@ def encolar_archivos_nuevos() -> int:
         )
         if trabajo_id:
             nuevos += 1
-            print(f"[ingesta] Nuevo: {archivo['name']} -> trabajo #{trabajo_id} (sku={sku})")
+            aviso_generado = " (sku generado automaticamente, no es un codigo de producto real)" if sku_generado else ""
+            print(f"[ingesta] Nuevo: {archivo['name']} -> trabajo #{trabajo_id} (sku={sku}){aviso_generado}")
     return nuevos
 
 
