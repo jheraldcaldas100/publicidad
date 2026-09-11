@@ -6,6 +6,18 @@ __pycache__/
 .venv/
 node_modules/
 
+# Credenciales de Google Drive (cuenta de servicio) - nunca versionar
+credentials/
+
 # Salidas generadas (imagenes de prueba) - no versionar, si el registro de costos
 output/*
 !output/registro.csv
+
+# Fotos de entrada descargadas de Drive por el worker de Fase 8 - datos de
+# trabajo en curso, no un asset fuente versionable (se vuelven a descargar
+# solas la proxima vez que el worker corra)
+assets/skus_pendientes/
+
+# Archivos temporales de sesiones de /codex-review (plan/review por ronda) -
+# el plan permanente vive en docs/PLAN-CORRECCION-MINIMA.md
+.claude/tmp/

@@ -3,3 +3,8 @@ rembg
 onnxruntime
 fal-client
 python-dotenv
+google-api-python-client
+google-auth
+streamlit
+filelock
+pytest
