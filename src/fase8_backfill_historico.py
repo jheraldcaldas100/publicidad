@@ -25,11 +25,11 @@ dos procesos a mano antes de una migracion de datos de una sola vez.
 Uso: python fase8_backfill_historico.py
 """
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import db
 from fase6_qa_reintento import evaluar_calidad
+from fase8_backup_db import hacer_backup
 from fase8_worker_ingesta import _calcular_estado_final, _ruta_escena
 from prompts import VERSION_QA
 
@@ -49,48 +49,6 @@ def confirmar_prerequisitos() -> None:
     respuesta = input("Escribe 'si' para confirmar y continuar: ").strip().lower()
     if respuesta != "si":
         abortar("no se confirmaron los prerequisitos")
-
-
-# ---------------------------------------------------------------------------
-# Paso 1: backup con la API de backup de SQLite (segura sobre una base viva,
-# a diferencia de una copia cruda de archivo que puede capturar un WAL a
-# medias)
-# ---------------------------------------------------------------------------
-
-def hacer_backup() -> Path:
-    import sqlite3
-
-    origen_path = db.DB_PATH.resolve()
-    carpeta_backups = origen_path.parent / "backups"
-    destino_path = carpeta_backups / f"{origen_path.name}.bak-{datetime.now():%Y%m%d-%H%M%S}"
-
-    if not origen_path.is_file():
-        abortar(f"no existe la base de datos en {origen_path} - nada que respaldar")
-    carpeta_backups.mkdir(parents=True, exist_ok=True)
-    if destino_path.exists():
-        abortar("ya existe un backup con ese nombre - resolver antes de continuar")
-
-    origen = None
-    destino = None
-    exito = False
-    try:
-        origen = sqlite3.connect(origen_path)
-        destino = sqlite3.connect(destino_path)
-        origen.backup(destino)
-        resultado = destino.execute("PRAGMA integrity_check").fetchone()[0]
-        if resultado != "ok":
-            raise RuntimeError(f"backup corrupto: {resultado}")
-        exito = True
-    finally:
-        if origen is not None:
-            origen.close()
-        if destino is not None:
-            destino.close()
-        if not exito:
-            destino_path.unlink(missing_ok=True)
-
-    print(f"[backfill] Backup creado en: {destino_path}")
-    return destino_path
 
 
 # ---------------------------------------------------------------------------
