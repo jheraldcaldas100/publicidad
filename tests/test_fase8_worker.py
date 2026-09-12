@@ -23,7 +23,8 @@ def test_destino_deseado():
     assert w._destino_deseado("error") is None
 
 
-def test_calcular_estado_final_error_si_todas_qa_error_o_ausentes(db_temporal, imagen_valida):
+def test_calcular_estado_final_error_si_todas_qa_error_o_ausentes(db_temporal, imagen_valida, monkeypatch):
+    monkeypatch.setattr(w, "ESCENAS_PRODUCCION", ["04"])
     tid = db.crear_trabajo("d1", "f.jpg", "SKU1", str(imagen_valida("f.jpg")))
     assert w._calcular_estado_final(tid) == "error"  # ninguna generacion todavia
 
@@ -34,7 +35,12 @@ def test_calcular_estado_final_error_si_todas_qa_error_o_ausentes(db_temporal, i
     assert w._calcular_estado_final(tid) == "error"
 
 
-def test_calcular_estado_final_listo_si_al_menos_una_completa(db_temporal, imagen_valida):
+def test_calcular_estado_final_listo_si_al_menos_una_completa(db_temporal, imagen_valida, monkeypatch):
+    # no depender del valor real de ESCENAS_PRODUCCION en prompts.py (que
+    # cambia con la configuracion de produccion) - este test es sobre la
+    # regla "al menos una completa", no sobre que numeros de escena usa
+    # produccion hoy.
+    monkeypatch.setattr(w, "ESCENAS_PRODUCCION", ["04", "09"])
     tid = db.crear_trabajo("d1", "f.jpg", "SKU1", str(imagen_valida("f.jpg")))
     gid1 = db.registrar_generacion(sku="SKU1", escena_id="04", modelo_ia="nano_banana",
                                     prompt="p", seed="n/a", intento=1,
