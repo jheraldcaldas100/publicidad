@@ -2,9 +2,11 @@
 
 Documento de referencia operativa. Explica el flujo completo del pipeline,
 el modelo de datos, la estructura del proyecto, y cómo operarlo día a día.
-No repite el detalle de *por qué* cada decisión de diseño se tomó así — eso
-vive en [`PLAN-CORRECCION-MINIMA.md`](PLAN-CORRECCION-MINIMA.md), que fue
-revisado por 4 rondas independientes con Codex antes de implementarse.
+No repite el detalle ronda por ronda de *por qué* cada decisión de diseño
+se tomó así — ese plan (revisado 4 veces con Codex antes de implementarse)
+ya cumplió su función y no se conserva como archivo aparte; el resumen de
+sus conclusiones vive en la sección 11 de este documento, y el detalle
+completo sigue disponible en el historial de git si alguna vez hace falta.
 
 Última actualización: 2026-09-11.
 
@@ -363,7 +365,7 @@ y el lock de instancia única del worker con subprocesos reales.
 
 ---
 
-## 11. Por qué el sistema es como es (resumen — detalle completo en `PLAN-CORRECCION-MINIMA.md`)
+## 11. Por qué el sistema es como es (resumen — el plan de corrección completo, con las 20 rondas de revisión que llevó, vive en el historial de git, no como archivo aparte)
 
 Este pipeline pasó por una corrección seria en septiembre de 2026. El
 problema original: `PROMPT_V3` tenía **el color hardcodeado** ("la copa

@@ -21,9 +21,9 @@ load_dotenv(ROOT / ".env")
 MODELO_VISION = "google/gemini-2.5-flash"
 
 # Estimado, no facturacion exacta de fal.ai (no hay acceso a su API de
-# billing desde aqui) - mismo orden de magnitud ya documentado en el
-# proyecto (docs/PLAN-CORRECCION-MINIMA.md, fase6_validacion_clasificador.py)
-# para openrouter/router/vision con este modelo. Se registra igual para una
+# billing desde aqui) - mismo orden de magnitud ya documentado en
+# fase6_validacion_clasificador.py para openrouter/router/vision con este
+# modelo. Se registra igual para una
 # evaluacion exitosa que para un qa_error: en ambos casos la llamada al
 # proveedor ya se hizo (la distincion es sobre la respuesta, no sobre si el
 # proveedor cobro o no - eso no es observable desde este cliente).
